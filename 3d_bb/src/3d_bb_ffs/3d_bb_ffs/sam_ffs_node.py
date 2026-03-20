@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# FastSAM 및 Fast-FoundationStereo 적용 버전
+# SAM2 및 Fast-FoundationStereo 적용 버전
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
@@ -20,7 +20,7 @@ except Exception:
 
 import sys
 import torch
-from ultralytics import FastSAM, YOLO
+from ultralytics import SAM, YOLO
 import torch.nn.functional as F  # 패딩(Padding) 처리를 위해 필요
 
 # === Fast-FoundationStereo 폴더 경로 강제 추가 ===
@@ -33,12 +33,12 @@ from core.utils.utils import InputPadder
 # from models.stereo_model import FastFoundationStereo  <-- (가상의 import 예시)
 
 
-class FastSam3DNode(Node):
+class Sam3DNode(Node):
     def __init__(self):
-        super().__init__('fastsam_3d_node')
+        super().__init__('sam_3d_node')
 
-        # === 1. 모델 설정 (FastSAM + Fast-FoundationStereo) ===
-        self.declare_parameter('sam_model_path', '/home/user/projects/3d_bb/src/tomato_3D/resource/FastSAM-s.pt')
+        # === 1. 모델 설정 (SAM2 + Fast-FoundationStereo) ===
+        self.declare_parameter('sam_model_path', '/home/user/projects/Tomato_3DBoundingBox/3d_bb/src/tomato_3D/resource/sam2.1_t.pt')
         self.declare_parameter('sam_device', 'cuda')
         self.declare_parameter('sam_imgsz', 1024)
         
@@ -52,13 +52,13 @@ class FastSam3DNode(Node):
         self.sam_imgsz = self.get_parameter('sam_imgsz').get_parameter_value().integer_value
         self.camera_baseline = self.get_parameter('camera_baseline').get_parameter_value().double_value
 
-        # FastSAM 로드
+        # SAM2 로드
         try:
-            self.sam_model = FastSAM(self.get_parameter('sam_model_path').get_parameter_value().string_value)
-            self.get_logger().info('Ultralytics FastSAM loaded')
+            self.sam_model = SAM(self.get_parameter('sam_model_path').get_parameter_value().string_value)
+            self.get_logger().info('Ultralytics SAM 2 loaded')
         except Exception as e:
             self.sam_model = None
-            self.get_logger().error(f'FastSAM 로드 실패: {e}')
+            self.get_logger().error(f'SAM 2 로드 실패: {e}')
 
         # Fast-FoundationStereo 로드
         try:
@@ -79,7 +79,7 @@ class FastSam3DNode(Node):
 
         # === 2. YOLO 설정 ===
         self.declare_parameter('tracking_mode', 'yolo')
-        self.declare_parameter('yolo_model_path', '/home/user/projects/3d_bb/src/tomato_3D/resource/best.pt')
+        self.declare_parameter('yolo_model_path', '/home/user/projects/Tomato_3DBoundingBox/3d_bb/src/tomato_3D/resource/best.pt')
         self.declare_parameter('yolo_tracker', 'bytetrack.yaml')
         self.declare_parameter('yolo_conf', 0.25)
         self.declare_parameter('yolo_iou', 0.45)
@@ -529,14 +529,14 @@ class FastSam3DNode(Node):
 
     def run_sam(self, rgb_img, x_min, y_min, x_max, y_max):
         """
-        Ultralytics FastSAM 로 bbox prompt 기반 mask 생성
+        Ultralytics SAM/SAM2 로 bbox prompt 기반 mask 생성
         반환: bool mask (H, W)
         """
         h, w = rgb_img.shape[:2]
 
         # SAM 모델이 없으면 더미 mask로 fallback
         if self.sam_model is None:
-            self.get_logger().warn('FastSAM 모델이 없어 더미 mask 사용')
+            self.get_logger().warn('SAM 모델이 없어 더미 mask 사용')
             mask = np.zeros((h, w), dtype=bool)
             x_min = max(0, min(w, int(x_min)))
             x_max = max(0, min(w, int(x_max)))
@@ -557,7 +557,7 @@ class FastSam3DNode(Node):
             )
 
             if not results or results[0].masks is None:
-                self.get_logger().warn('FastSAM 결과가 비어 있음')
+                self.get_logger().warn('SAM 결과가 비어 있음')
                 return np.zeros((h, w), dtype=bool)
 
             mask_data = results[0].masks.data  # shape: [N, H, W]
@@ -566,7 +566,7 @@ class FastSam3DNode(Node):
                 mask_data = mask_data.cpu().numpy()
 
             if len(mask_data) == 0:
-                self.get_logger().warn('FastSAM mask가 0개')
+                self.get_logger().warn('SAM mask가 0개')
                 return np.zeros((h, w), dtype=bool)
 
             mask = mask_data[0].astype(bool)
@@ -579,11 +579,11 @@ class FastSam3DNode(Node):
                     interpolation=cv2.INTER_NEAREST
                 ).astype(bool)
 
-            self.get_logger().info(f'FastSAM mask pixel count: {int(mask.sum())}')
+            self.get_logger().info(f'SAM mask pixel count: {int(mask.sum())}')
             return mask
 
         except Exception as e:
-            self.get_logger().error(f'FastSAM 실행 실패: {e}')
+            self.get_logger().error(f'SAM 실행 실패: {e}')
             return np.zeros((h, w), dtype=bool)
 
     def compute_3d_bbox(self, mask, depth, cam_info: CameraInfo):
@@ -722,7 +722,7 @@ class FastSam3DNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = FastSam3DNode()
+    node = Sam3DNode()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:

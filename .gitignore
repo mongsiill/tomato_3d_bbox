@@ -1,0 +1,9 @@
+/3d_bb/build
+/3d_bb/data
+/3d_bb/install
+/3d_bb/log
+
+/3d_bb/src/zed-ros2-wrapper
+
+*.pt
+

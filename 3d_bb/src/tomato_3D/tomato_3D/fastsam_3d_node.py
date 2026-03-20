@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-#SAM2 사용
+#FastSAM 사용
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, QoSReliabilityPolicy, QoSHistoryPolicy
@@ -21,15 +21,15 @@ except Exception:
     o3d = None
 
 import torch
-from ultralytics import SAM, YOLO
+from ultralytics import FastSAM, YOLO
 
 
-class Sam3DNode(Node):
+class FastSam3DNode(Node):
     def __init__(self):
-        super().__init__('sam_3d_node')
+        super().__init__('fastsam_3d_node')
 
         # Ultralytics SAM/SAM2 설정
-        self.declare_parameter('sam_model_path', '/home/user/projects/3d_bb/src/tomato_3D/resource/sam2.1_t.pt')
+        self.declare_parameter('sam_model_path', '/home/user/projects/Tomato_3DBoundingBox/3d_bb/src/tomato_3D/resource/FastSAM-s.pt')
         self.declare_parameter('sam_device', 'cuda')  # auto / cpu / cuda
         self.declare_parameter('sam_imgsz', 1024)
 
@@ -43,17 +43,17 @@ class Sam3DNode(Node):
             self.device = self.sam_device_param
 
         try:
-            self.sam_model = SAM(self.sam_model_path)
+            self.sam_model = FastSAM(self.sam_model_path)
             self.get_logger().info(
-                f'Ultralytics SAM loaded: {self.sam_model_path} on {self.device}'
+                f'Ultralytics FastSAM loaded: {self.sam_model_path} on {self.device}'
             )
         except Exception as e:
             self.sam_model = None
-            self.get_logger().error(f'SAM 로드 실패: {e}')
+            self.get_logger().error(f'FastSAM 로드 실패: {e}')
 
         # YOLO tracking 설정 (detect+track)
         self.declare_parameter('tracking_mode', 'yolo')  # yolo | csrt
-        self.declare_parameter('yolo_model_path', '/home/user/projects/3d_bb/src/tomato_3D/resource/best.pt')
+        self.declare_parameter('yolo_model_path', '/home/user/projects/Tomato_3DBoundingBox/3d_bb/src/tomato_3D/resource/best.pt')
         self.declare_parameter('yolo_tracker', 'bytetrack.yaml')  # bytetrack.yaml | botsort.yaml
         self.declare_parameter('yolo_conf', 0.25)
         self.declare_parameter('yolo_iou', 0.45)
@@ -154,7 +154,7 @@ class Sam3DNode(Node):
         self.smoothed_size = None
         self.is_processing = False  # 연산 밀림 방지용 락
 
-        self.get_logger().info('Sam3DNode 시작')
+        self.get_logger().info('FastSam3DNode 시작')
 
     # --- 콜백들 ---
 
@@ -217,7 +217,7 @@ class Sam3DNode(Node):
         self.track_box2d_pub.publish(self.xyxy_to_polygon(x_min, y_min, x_max, y_max))
 
         # 4) SAM/FastSAM 으로 mask 생성 (bbox prompt)
-        mask = self.run_sam(self.last_rgb, x_min, y_min, x_max, y_max)
+        mask = self.run_fastsam(self.last_rgb, x_min, y_min, x_max, y_max)
 
         # 5) mask 시각화 토픽 발행
         self.publish_mask_topics(mask, self.last_rgb, header)
@@ -485,7 +485,7 @@ class Sam3DNode(Node):
         y_min, y_max = min(ys), max(ys)
         return int(x_min), int(y_min), int(x_max), int(y_max)
 
-    def run_sam(self, rgb_img, x_min, y_min, x_max, y_max):
+    def run_fastsam(self, rgb_img, x_min, y_min, x_max, y_max):
         """
         Ultralytics SAM/SAM2 로 bbox prompt 기반 mask 생성
         반환: bool mask (H, W)
@@ -681,7 +681,7 @@ class Sam3DNode(Node):
 
 def main(args=None):
     rclpy.init(args=args)
-    node = Sam3DNode()
+    node = FastSam3DNode()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:

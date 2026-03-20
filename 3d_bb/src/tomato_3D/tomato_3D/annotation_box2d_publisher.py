@@ -15,7 +15,7 @@ class AnnotationBox2DPublisher(Node):
         # 파라미터
         self.declare_parameter(
             'annotation_path',
-            '/home/user/projects/3d_bb/data/annotations/frame_000001.json'
+            '/home/user/projects/Tomato_3DBoundingBox/3d_bb/data/annotations/frame_000001.json'
         )
         self.declare_parameter('box2d_topic', '/tomato/box2d')
         self.declare_parameter('ack_topic', '/tomato/box2d_ack')
